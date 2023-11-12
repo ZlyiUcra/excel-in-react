@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Spreadsheet, { CellBase, Matrix } from "react-spreadsheet";
 
-type FormType = Array<{ value?: string | number; readOnly?: boolean }>;
+//type FormType = Array<{ value?: string | number; readOnly?: boolean }>;
+interface FormType
+  extends Array<{
+    value?: string | number;
+    readOnly?: boolean;
+  }> {}
 
 /**
  * Renders a form component.
@@ -15,48 +20,49 @@ export const Form = () => {
     { value: 0, readOnly: true },
   ]);
 
-  const handleFieldChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    columnIndex: number
-  ) => {
-    const fieldValue = e.target.value;
-    setData((prevData) => {
-      const newData = [...prevData];
-      newData[columnIndex].value = fieldValue;
+  const onChangeTable = useCallback(
+    (newData: FormType | Array<FormType>, flagTable: boolean) => {
+      const baseData = flagTable
+        ? ([...newData[0]] as FormType)
+        : ([...newData] as FormType);
 
-      onChangeTable(newData, false); // Call onChangeTable with newData
+      const sum = baseData
+        .slice(0, -1)
+        .reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
 
-      return newData;
-    });
-  };
+      const updatedData = [...baseData];
+      updatedData[baseData.length - 1] = {
+        ...updatedData[baseData.length - 1],
+        value: sum,
+      };
 
-  const onChangeTable = (
-    newData: FormType | Array<FormType>,
-    flagTable: boolean
-  ) => {
-    let baseData: Array<{
-      value?: string | number | undefined;
-      readOnly?: boolean | undefined;
-    }> = [];
-    if (flagTable) {
-      baseData = newData[0] as FormType;
-    } else {
-      baseData = newData as FormType;
-    }
-    const sum: number = baseData.slice(0, -1).reduce(
-      (
-        acc: number,
-        curr: {
-          value?: string | number | undefined;
-          readOnly?: boolean | undefined;
-        }
-      ) => acc + (Number(curr?.value) || 0),
-      0
-    );
-    baseData[baseData.length - 1].value = sum;
+      const changes =
+        data.filter((cell, index) => cell.value !== updatedData[index].value)
+          .length > 0;
 
-    setData(baseData as FormType);
-  };
+      changes && setData(updatedData);
+    },
+    [data]
+  );
+
+  const handleFieldChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>, columnIndex: number) => {
+      const fieldValue = e.target.value;
+      setData((prevData) => {
+        const newData = [...prevData];
+        newData[columnIndex] = { ...newData[columnIndex], value: fieldValue };
+
+        const changes =
+          data.filter((cell, index) => cell.value !== newData[index].value)
+            .length > 0;
+
+        changes && onChangeTable(newData, false); // Call onChangeTable with newData
+
+        return newData;
+      });
+    },
+    [onChangeTable]
+  );
 
   return (
     <div>
